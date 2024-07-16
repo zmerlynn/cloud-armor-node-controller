@@ -86,7 +86,7 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 		return reconcile.Result{}, fmt.Errorf("could not set security policy of instance: %+v", err)
 	}
 
-	log.Info("Set security policy successfully", "node", nodeName, "policy", r.securityPolicyURL)
+	log.Info("Set security policy successfully", "node", name, "policy", r.securityPolicyURL)
 
 	return reconcile.Result{}, nil
 }
