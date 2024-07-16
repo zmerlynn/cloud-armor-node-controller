@@ -42,48 +42,95 @@ func (i *instanceClientImpl) SetSecurityPolicy(ctx context.Context, req *compute
 	return nil, nil
 }
 
-func TestReconcile(t *testing.T) {
-	labels := make(map[string]string)
-	labels["cloud.google.com/gke-nodepool"] = "default-pool"
-	labels["topology.gke.io/zone"] = "us-central1-a"
-	name := "my-node"
-	rc := runtimeClientImpt{labels: labels, nodeName: name}
-	ic := instanceClientImpl{}
-
-	s := "cloud.google.com/gke-nodepool=default-pool"
-	spURL := "securityPolicy"
-	projectID := "my-project-id"
-	r := &reconcileNode{
-		client:            &rc,
-		instanceClient:    &ic,
-		selector:          s,
-		securityPolicyURL: spURL,
-		projectID:         projectID,
+func TestReconcileTable(t *testing.T) {
+	var tests = []struct {
+		name              string
+		label             string
+		value             string
+		zone              string
+		nodeName          string
+		selector          string
+		securityPolicyURL string
+		projectID         string
+		timesCalled       int
+	}{
+		{
+			"label is matched",
+			"cloud.google.com/gke-nodepool",
+			"default-pool",
+			"us-central1-a",
+			"my-node-name",
+			"cloud.google.com/gke-nodepool=default-pool",
+			"securityPolicyURL",
+			"my-project-id",
+			1,
+		},
+		{
+			"label is not matched",
+			"cloud.google.com/gke-nodepool",
+			"default-pool",
+			"us-central1-a",
+			"my-node-name",
+			"cloud.google.com/gke-nodepool=not-default-pool",
+			"securityPolicyURL",
+			"my-project-id",
+			0,
+		},
 	}
 
-	reconcileReq := reconcile.Request{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			labels := make(map[string]string)
+			labels[tt.label] = tt.value
+			labels["topology.gke.io/zone"] = tt.zone
+			name := tt.nodeName
+			rc := runtimeClientImpt{labels: labels, nodeName: name}
+			ic := instanceClientImpl{}
 
-	if _, err := r.Reconcile(context.Background(), reconcileReq); err != nil {
-		t.Errorf("error %v, want no error", err)
+			r := &reconcileNode{
+				client:            &rc,
+				instanceClient:    &ic,
+				selector:          tt.selector,
+				securityPolicyURL: tt.securityPolicyURL,
+				projectID:         tt.projectID,
+			}
+
+			reconcileReq := reconcile.Request{}
+
+			if _, err := r.Reconcile(context.Background(), reconcileReq); err != nil {
+				t.Errorf("error %v, want no error", err)
+			}
+
+			if ic.timesCalled != tt.timesCalled {
+				t.Errorf("wrong number of times called: %d, want %d", ic.timesCalled, tt.timesCalled)
+			}
+
+			if ic.timesCalled == 0 {
+				// Skip checking the SetSecurityPolicyInstanceRequest because there is none.
+				return
+			}
+
+			if ic.calledWithSecurityPolicy != tt.securityPolicyURL {
+				t.Errorf("wrong security policy: %s, want %s", ic.calledWithSecurityPolicy, tt.securityPolicyURL)
+			}
+
+			if ic.calledWithProjectID != tt.projectID {
+				t.Errorf("wrong project id: %s, want %s", ic.calledWithProjectID, tt.projectID)
+			}
+
+			if ic.calledWithZone != tt.zone {
+				t.Errorf("wrong zone: %s, want %s", ic.calledWithZone, tt.zone)
+			}
+
+			if ic.calledWithInstanceName != tt.nodeName {
+				t.Errorf("wrong instance name: %s, want %s", ic.calledWithInstanceName, tt.nodeName)
+			}
+
+			if len(ic.calledWithNetworkInterface) != 1 || ic.calledWithNetworkInterface[0] != "nic0" {
+				t.Errorf("wrong network interface: %v, want only 1 element of nic0", ic.calledWithNetworkInterface)
+			}
+		})
+
 	}
 
-	if ic.calledWithSecurityPolicy != spURL {
-		t.Errorf("wrong security policy: %s, want %s", ic.calledWithSecurityPolicy, spURL)
-	}
-
-	if ic.calledWithProjectID != projectID {
-		t.Errorf("wrong project id: %s, want %s", ic.calledWithProjectID, projectID)
-	}
-
-	if ic.calledWithInstanceName != name {
-		t.Errorf("wrong instance name: %s, want %s", ic.calledWithInstanceName, name)
-	}
-
-	if len(ic.calledWithNetworkInterface) != 1 || ic.calledWithNetworkInterface[0] != "nic0" {
-		t.Errorf("wrong network interface: %v, want only 1 element of nic0", ic.calledWithNetworkInterface)
-	}
-
-	if ic.timesCalled != 1 {
-		t.Errorf("wrong number of times called: %d, want %d", ic.timesCalled, 1)
-	}
 }
