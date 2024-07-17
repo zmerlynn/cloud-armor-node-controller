@@ -61,27 +61,26 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 	}
 
 	// Print the node
-	name := node.Name
-	zone := node.Labels["topology.gke.io/zone"]
-	log.Info("Reconciling Node", "nodeName", name, "nodeZone", zone)
+	nodeName := node.Name
+	nodeZone := node.Labels["topology.gke.io/zone"]
+	log.Info("Reconciling Node", "name", nodeName, "zone", nodeZone)
 
 	// Check if node label matches the selector
 	isMatch := r.selector.Matches(labels.Set(node.Labels))
-	log.Info("Should apply security policy", "value", isMatch)
 
 	if !isMatch {
+		log.Info("Node does not match label selector, skipping", "name", nodeName)
 		return reconcile.Result{}, nil
 	}
 
 	// Set Google Cloud Armor security policy for the instance
-	networkInterfaces := []string{"nic0"}
 	spReq := &computepb.SetSecurityPolicyInstanceRequest{
 		Project:  r.projectID,
-		Zone:     zone,
-		Instance: name,
+		Zone:     nodeZone,
+		Instance: nodeName,
 		InstancesSetSecurityPolicyRequestResource: &computepb.InstancesSetSecurityPolicyRequest{
 			SecurityPolicy:    &r.securityPolicyURL,
-			NetworkInterfaces: networkInterfaces,
+			NetworkInterfaces: []string{"nic0"},
 		},
 	}
 
@@ -89,7 +88,7 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 		return reconcile.Result{}, fmt.Errorf("could not set security policy of instance: %+v", err)
 	}
 
-	log.Info("Set security policy successfully", "node", name, "policy", r.securityPolicyURL)
+	log.Info("Set security policy successfully", "node", nodeName, "policy", r.securityPolicyURL)
 
 	return reconcile.Result{}, nil
 }
