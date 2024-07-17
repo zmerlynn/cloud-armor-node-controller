@@ -7,6 +7,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/googleapis/gax-go/v2"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -80,17 +81,21 @@ func TestReconcileTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			labels := make(map[string]string)
-			labels[tt.label] = tt.value
-			labels["topology.gke.io/zone"] = tt.zone
+			nodeLabels := make(map[string]string)
+			nodeLabels[tt.label] = tt.value
+			nodeLabels["topology.gke.io/zone"] = tt.zone
 			name := tt.nodeName
-			rc := runtimeClientImpt{labels: labels, nodeName: name}
+			parsedSelector, err := labels.Parse(tt.selector)
+			if err != nil {
+				t.Errorf("error parsing selector %v, want no error", err)
+			}
+			rc := runtimeClientImpt{labels: nodeLabels, nodeName: name}
 			ic := instanceClientImpl{}
 
 			r := &reconcileNode{
 				client:            &rc,
 				instanceClient:    &ic,
-				selector:          tt.selector,
+				selector:          parsedSelector,
 				securityPolicyURL: tt.securityPolicyURL,
 				projectID:         tt.projectID,
 			}

@@ -43,7 +43,7 @@ type reconcileNode struct {
 	// client can be used to retrieve objects from the APIServer.
 	client            runtimeClient
 	instanceClient    instanceClient
-	selector          string
+	selector          labels.Selector
 	securityPolicyURL string
 	projectID         string
 }
@@ -65,12 +65,8 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 	zone := node.Labels["topology.gke.io/zone"]
 	log.Info("Reconciling Node", "nodeName", name, "nodeZone", zone)
 
-	// Build Selector
-	parseSelector, err := labels.Parse(r.selector)
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("could not parse selector: %+v", err)
-	}
-	isMatch := parseSelector.Matches(labels.Set(node.Labels))
+	// Check if node label matches the selector
+	isMatch := r.selector.Matches(labels.Set(node.Labels))
 	log.Info("Should apply security policy", "value", isMatch)
 
 	if !isMatch {
@@ -89,7 +85,7 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 		},
 	}
 
-	if _, err = r.instanceClient.SetSecurityPolicy(ctx, spReq); err != nil {
+	if _, err := r.instanceClient.SetSecurityPolicy(ctx, spReq); err != nil {
 		return reconcile.Result{}, fmt.Errorf("could not set security policy of instance: %+v", err)
 	}
 
