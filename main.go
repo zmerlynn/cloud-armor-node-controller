@@ -26,6 +26,7 @@ import (
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/metadata"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -62,7 +63,14 @@ func main() {
 		securityPolicy = &esp
 	}
 
-	// Set up client to call GCE compute APIS.
+	// Parse selector from plain text
+	parseSelector, err := labels.Parse(*selector)
+	if err != nil {
+		entryLog.Error(err, "unable to parse selector")
+		os.Exit(1)
+	}
+
+	// Set up client to call GCE compute APIS
 	ctx := context.Background()
 	instancesClient, err := compute.NewInstancesRESTClient(ctx)
 	if err != nil {
@@ -74,7 +82,7 @@ func main() {
 	// Set up metadata client
 	metadataClient := metadata.NewClient(nil)
 
-	// Get project id, and region to make security policy url.
+	// Get project id, and region to make security policy url
 	projectID, err := metadataClient.ProjectID()
 	if err != nil {
 		entryLog.Error(err, "unable to run get project ID")
@@ -106,7 +114,7 @@ func main() {
 		Reconciler: &reconcileNode{
 			client:            mgr.GetClient(),
 			instanceClient:    instancesClient,
-			selector:          *selector,
+			selector:          parseSelector,
 			securityPolicyURL: makeSecurityPolicyURL(projectID, region, *securityPolicy),
 			projectID:         projectID,
 		},
