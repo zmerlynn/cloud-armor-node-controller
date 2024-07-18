@@ -4,6 +4,7 @@ go 1.22.4
 
 require (
 	cloud.google.com/go/compute v1.27.3
+	github.com/google/go-cmp v0.6.0
 	github.com/googleapis/gax-go/v2 v2.12.5
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2

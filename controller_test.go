@@ -6,6 +6,8 @@ import (
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/apiv1/computepb"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/googleapis/gax-go/v2"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,20 +27,12 @@ func (r *runtimeClientImpt) Get(ctx context.Context, key types.NamespacedName, o
 }
 
 type instanceClientImpl struct {
-	calledWithProjectID        string
-	calledWithZone             string
-	calledWithInstanceName     string
-	calledWithSecurityPolicy   string
-	calledWithNetworkInterface []string
-	timesCalled                int
+	request     *computepb.SetSecurityPolicyInstanceRequest
+	timesCalled int
 }
 
 func (i *instanceClientImpl) SetSecurityPolicy(ctx context.Context, req *computepb.SetSecurityPolicyInstanceRequest, opts ...gax.CallOption) (*compute.Operation, error) {
-	i.calledWithProjectID = req.Project
-	i.calledWithZone = req.Zone
-	i.calledWithInstanceName = req.Instance
-	i.calledWithSecurityPolicy = *req.InstancesSetSecurityPolicyRequestResource.SecurityPolicy
-	i.calledWithNetworkInterface = req.InstancesSetSecurityPolicyRequestResource.NetworkInterfaces
+	i.request = req
 	i.timesCalled++
 	return nil, nil
 }
@@ -115,27 +109,20 @@ func TestReconcileTable(t *testing.T) {
 				return
 			}
 
-			if ic.calledWithSecurityPolicy != tt.securityPolicyURL {
-				t.Errorf("wrong security policy: %s, want %s", ic.calledWithSecurityPolicy, tt.securityPolicyURL)
+			expectedRequest := computepb.SetSecurityPolicyInstanceRequest{
+				Project:  tt.projectID,
+				Zone:     tt.zone,
+				Instance: tt.nodeName,
+				InstancesSetSecurityPolicyRequestResource: &computepb.InstancesSetSecurityPolicyRequest{
+					SecurityPolicy:    &tt.securityPolicyURL,
+					NetworkInterfaces: []string{"nic0"},
+				},
 			}
-
-			if ic.calledWithProjectID != tt.projectID {
-				t.Errorf("wrong project id: %s, want %s", ic.calledWithProjectID, tt.projectID)
-			}
-
-			if ic.calledWithZone != tt.zone {
-				t.Errorf("wrong zone: %s, want %s", ic.calledWithZone, tt.zone)
-			}
-
-			if ic.calledWithInstanceName != tt.nodeName {
-				t.Errorf("wrong instance name: %s, want %s", ic.calledWithInstanceName, tt.nodeName)
-			}
-
-			if len(ic.calledWithNetworkInterface) != 1 || ic.calledWithNetworkInterface[0] != "nic0" {
-				t.Errorf("wrong network interface: %v, want only 1 element of nic0", ic.calledWithNetworkInterface)
+			if diff := cmp.Diff(&expectedRequest, ic.request,
+				cmpopts.IgnoreUnexported(computepb.SetSecurityPolicyInstanceRequest{},
+					computepb.InstancesSetSecurityPolicyRequest{})); diff != "" {
+				t.Errorf("MakeGatewayInfo() mismatch (-want +got):\n%s", diff)
 			}
 		})
-
 	}
-
 }
