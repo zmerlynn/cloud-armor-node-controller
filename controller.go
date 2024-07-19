@@ -66,9 +66,7 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 	log.Info("Reconciling Node", "name", nodeName, "zone", nodeZone)
 
 	// Check if node label matches the selector
-	isMatch := r.selector.Matches(labels.Set(node.Labels))
-
-	if !isMatch {
+	if !r.selector.Matches(labels.Set(node.Labels)) {
 		log.Info("Node does not match label selector, skipping", "name", nodeName)
 		return reconcile.Result{}, nil
 	}
