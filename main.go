@@ -19,9 +19,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
-	"strings"
 
 	compute "cloud.google.com/go/compute/apiv1"
 	"cloud.google.com/go/compute/metadata"
@@ -37,13 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
-
-func makeSecurityPolicyURL(projectID, region, securityPolicy string) string {
-	if securityPolicy == "" {
-		return ""
-	}
-	return "https://www.googleapis.com/compute/v1/projects/" + projectID + "/regions/" + region + "/securityPolicies/" + securityPolicy
-}
 
 func init() {
 	log.SetLogger(zap.New())
@@ -64,7 +55,7 @@ func main() {
 	}
 
 	// Parse selector from plain text
-	parseSelector, err := labels.Parse(*selector)
+	labelSelector, err := labels.Parse(*selector)
 	if err != nil {
 		entryLog.Error(err, "unable to parse selector")
 		os.Exit(1)
@@ -83,22 +74,17 @@ func main() {
 	metadataClient := metadata.NewClient(nil)
 
 	// Get project id, and region to make security policy url
-	projectID, err := metadataClient.ProjectID()
+	projectID, err := metadataClient.ProjectIDWithContext(ctx)
 	if err != nil {
 		entryLog.Error(err, "unable to run get project ID")
 		os.Exit(1)
 	}
-	fmt.Println("project ID is ", projectID)
-	zone, err := metadataClient.Zone()
+	zone, err := metadataClient.ZoneWithContext(ctx)
 	if err != nil {
 		entryLog.Error(err, "unable to run get zone")
 		os.Exit(1)
 	}
-	fmt.Println("zone is ", zone)
-
-	parts := strings.Split(zone, "-")
-	region := parts[0] + "-" + parts[1]
-	fmt.Println("region is ", region)
+	entryLog.Info("retrieved data from metatdata client", "project id", projectID, "zone", zone)
 
 	// Setup a Manager
 	entryLog.Info("setting up manager")
@@ -109,13 +95,13 @@ func main() {
 	}
 
 	// Setup a new controller to reconcile Nodes
-	entryLog.Info("Setting up controller")
+	entryLog.Info("setting up controller")
 	c, err := controller.New("foo-controller", mgr, controller.Options{
 		Reconciler: &reconcileNode{
 			client:            mgr.GetClient(),
 			instanceClient:    instancesClient,
-			selector:          parseSelector,
-			securityPolicyURL: makeSecurityPolicyURL(projectID, region, *securityPolicy),
+			selector:          labelSelector,
+			securityPolicyURL: makeSecurityPolicyURL(projectID, extractRegionFromZone(zone), *securityPolicy),
 			projectID:         projectID,
 		},
 	})

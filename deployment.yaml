@@ -12,59 +12,62 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: cloud-armor-node-controller
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: node-controller-sa
-  namespace: default
+  name: cloud-armor-node-controller-sa
+  namespace: cloud-armor-node-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: node-controller-role
+  name: cloud-armor-node-controller-role
 rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["list", "watch"]
-  - apiGroups: [""]
-    resources: ["events"]
-    verbs: ["create", "patch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: node-controller-access
+  name: cloud-armor-node-controller-access
 subjects:
   - kind: ServiceAccount
-    name: node-controller-sa
-    namespace: default
+    name: cloud-armor-node-controller-sa
+    namespace: cloud-armor-node-controller
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: node-controller-role
+  name: cloud-armor-node-controller-role
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: node-controller
-  namespace: default
+  name: cloud-armor-node-controller
+  namespace: cloud-armor-node-controller
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: node-controller
+      app: cloud-armor-node-controller
   template:
     metadata:
       labels:
-        app: node-controller
+        app: cloud-armor-node-controller
     spec:
-      serviceAccountName: node-controller-sa
+      serviceAccountName: cloud-armor-node-controller-sa
       containers:
-        - name: node-controller
-          image: us-central1-docker.pkg.dev/peteryizhong-gke-dev/peteryizhong-repository/node-controller:0.1
+        - name: cloud-armor-node-controller
+          image: YOUR_REPOSITORY_HERE/cloud-armor-node-controller:0.1
           imagePullPolicy: Always
           env:
           - name: SELECTOR
             value: "cloud.google.com/gke-nodepool=default-pool"
           - name: SECURITY_POLICY
-            value: "yi-edge-sp"
+            value: "YOUR_SECURITY_POLICY_HERE"

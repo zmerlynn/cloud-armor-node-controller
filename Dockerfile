@@ -14,7 +14,7 @@
 
 # Gather dependencies and build the executable
 FROM golang:1.22.4 as builder
-WORKDIR /go/src/experiments
+WORKDIR /go/src/cloud-armor-node-controller
 COPY . .
 
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o client .
@@ -22,7 +22,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o client .
 # Create the final image that will run the webhook server for FleetAutoscaler webhook policy
 FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=builder /go/src/experiments/client /
+COPY --from=builder /go/src/cloud-armor-node-controller/client /
 
 USER nonroot:nonroot
 ENTRYPOINT ["/client"]
