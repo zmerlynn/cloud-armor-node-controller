@@ -13,7 +13,7 @@
 # limitations under the License.
 
 #
-# Makefile for building a simple udp client and server
+# Makefile for building a Cloud Armor Node Controller
 #
 
 #  __     __         _       _     _
@@ -23,19 +23,9 @@
 #     \_/ \__,_|_|  |_|\__,_|_.__/|_|\___|___/
 #
 
-REGISTRY ?=
+REPOSITORY ?=
 version := 0.1
-ifeq ($(REGISTRY),)
-    server_tag := node-controller:$(version)
-else
-    server_tag := $(REGISTRY)/node-controller:$(version)
-endif
-
-# log:
-# 	echo $(server_tag)
-
-# log2:
-# 	echo $(version)
+server_tag := $(REPOSITORY)/cloud-armor-node-controller:$(version)
 
 #   _____                    _
 #  |_   _|_ _ _ __ __ _  ___| |_ ___
@@ -53,4 +43,4 @@ push: build
 
 # build and push the example custom controller image with specified tag
 cloud-build:
-	gcloud builds submit --config=cloudbuild.yaml
+	gcloud builds submit --config=cloudbuild.yaml --substitutions _REPOSITORY=$(REPOSITORY)

@@ -34,6 +34,5 @@ steps:
       make push
 options:
   dynamic_substitutions: true
-substitutions:
-  _REPOSITORY: $REGISTRY
+  defaultLogsBucketBehavior: REGIONAL_USER_OWNED_BUCKET
 timeout: 1800s
