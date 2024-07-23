@@ -1,0 +1,73 @@
+---
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+    name: cloud-armor-node-controller
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cloud-armor-node-controller-sa
+  namespace: cloud-armor-node-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cloud-armor-node-controller-role
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cloud-armor-node-controller-access
+subjects:
+  - kind: ServiceAccount
+    name: cloud-armor-node-controller-sa
+    namespace: cloud-armor-node-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cloud-armor-node-controller-role
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-armor-node-controller
+  namespace: cloud-armor-node-controller
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cloud-armor-node-controller
+  template:
+    metadata:
+      labels:
+        app: cloud-armor-node-controller
+    spec:
+      serviceAccountName: cloud-armor-node-controller-sa
+      containers:
+        - name: cloud-armor-node-controller
+          image: YOUR_REPOSITORY_HERE/cloud-armor-node-controller:0.1
+          imagePullPolicy: Always
+          env:
+          - name: SELECTOR
+            value: "cloud.google.com/gke-nodepool=default-pool"
+          - name: SECURITY_POLICY
+            value: "YOUR_SECURITY_POLICY_HERE"
