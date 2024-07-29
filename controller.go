@@ -44,6 +44,7 @@ type reconcileNode struct {
 	selector          labels.Selector
 	securityPolicyURL string
 	projectID         string
+	processedNodes    map[string]bool
 }
 
 // Assert reconcileNode implements reconcile.Reconciler.
@@ -60,6 +61,10 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 
 	// Print the node
 	nodeName := node.Name
+	if r.processedNodes[nodeName] {
+		log.Info("Already processed, skip reconciling", "node", nodeName)
+		return reconcile.Result{}, nil
+	}
 	nodeZone := node.Labels["topology.gke.io/zone"]
 	log.Info("Reconciling Node", "name", nodeName, "zone", nodeZone)
 
@@ -85,6 +90,7 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 	}
 
 	log.Info("Set security policy successfully", "node", nodeName, "policy", r.securityPolicyURL)
+	r.processedNodes[nodeName] = true
 
 	return reconcile.Result{}, nil
 }
