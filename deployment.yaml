@@ -68,6 +68,6 @@ spec:
           imagePullPolicy: Always
           env:
           - name: SELECTOR
-            value: "cloud.google.com/gke-nodepool=default-pool"
+            value: "YOUR_LABEL_SELECTOR_HERE"
           - name: SECURITY_POLICY
             value: "YOUR_SECURITY_POLICY_HERE"
