@@ -101,6 +101,7 @@ func main() {
 			selector:          labelSelector,
 			securityPolicyURL: makeSecurityPolicyURL(projectID, extractRegionFromZone(zone), *securityPolicy),
 			projectID:         projectID,
+			processedNodes:    make(map[string]bool),
 		},
 	})
 	if err != nil {
