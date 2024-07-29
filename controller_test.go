@@ -62,28 +62,43 @@ func TestReconcileTable(t *testing.T) {
 		securityPolicyURL string
 		projectID         string
 		timesCalled       int
+		timesToReconcile  int
 	}{
 		{
-			"label is matched",
-			"cloud.google.com/gke-nodepool",
-			"default-pool",
-			"us-central1-a",
-			"my-node-name",
-			"cloud.google.com/gke-nodepool=default-pool",
-			"securityPolicyURL",
-			"my-project-id",
-			1,
+			name:              "label is matched",
+			label:             "cloud.google.com/gke-nodepool",
+			value:             "default-pool",
+			zone:              "us-central1-a",
+			nodeName:          "my-node-name",
+			selector:          "cloud.google.com/gke-nodepool=default-pool",
+			securityPolicyURL: "securityPolicyURL",
+			projectID:         "my-project-id",
+			timesCalled:       1,
+			timesToReconcile:  1,
 		},
 		{
-			"label is not matched",
-			"cloud.google.com/gke-nodepool",
-			"default-pool",
-			"us-central1-a",
-			"my-node-name",
-			"cloud.google.com/gke-nodepool=not-default-pool",
-			"securityPolicyURL",
-			"my-project-id",
-			0,
+			name:              "label is not matched",
+			label:             "cloud.google.com/gke-nodepool",
+			value:             "default-pool",
+			zone:              "us-central1-a",
+			nodeName:          "my-node-name",
+			selector:          "cloud.google.com/gke-nodepool=not-default-pool",
+			securityPolicyURL: "securityPolicyURL",
+			projectID:         "my-project-id",
+			timesCalled:       0,
+			timesToReconcile:  1,
+		},
+		{
+			name:              "a node's security policy should only be set once",
+			label:             "cloud.google.com/gke-nodepool",
+			value:             "default-pool",
+			zone:              "us-central1-a",
+			nodeName:          "my-node-name",
+			selector:          "cloud.google.com/gke-nodepool=default-pool",
+			securityPolicyURL: "securityPolicyURL",
+			projectID:         "my-project-id",
+			timesCalled:       1,
+			timesToReconcile:  10,
 		},
 	}
 
@@ -106,12 +121,15 @@ func TestReconcileTable(t *testing.T) {
 				selector:          parsedSelector,
 				securityPolicyURL: tt.securityPolicyURL,
 				projectID:         tt.projectID,
+				processedNodes:    make(map[string]bool),
 			}
 
 			reconcileReq := reconcile.Request{}
 
-			if _, err := r.Reconcile(context.Background(), reconcileReq); err != nil {
-				t.Errorf("error %v, want no error", err)
+			for i := 0; i < tt.timesToReconcile; i++ {
+				if _, err := r.Reconcile(context.Background(), reconcileReq); err != nil {
+					t.Errorf("error %v, want no error", err)
+				}
 			}
 
 			if ic.timesCalled != tt.timesCalled {
