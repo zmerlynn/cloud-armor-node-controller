@@ -23,7 +23,9 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/googleapis/gax-go/v2"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -32,9 +34,13 @@ import (
 type runtimeClientImpt struct {
 	labels   map[string]string
 	nodeName string
+	getError error
 }
 
 func (r *runtimeClientImpt) Get(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error {
+	if r.getError != nil {
+		return r.getError
+	}
 	obj.SetLabels(r.labels)
 	obj.SetName(r.nodeName)
 	return nil
@@ -63,6 +69,7 @@ func TestReconcileTable(t *testing.T) {
 		projectID         string
 		timesCalled       int
 		timesToReconcile  int
+		getError          error
 	}{
 		{
 			name:              "label is matched",
@@ -75,6 +82,7 @@ func TestReconcileTable(t *testing.T) {
 			projectID:         "my-project-id",
 			timesCalled:       1,
 			timesToReconcile:  1,
+			getError:          nil,
 		},
 		{
 			name:              "label is not matched",
@@ -87,6 +95,7 @@ func TestReconcileTable(t *testing.T) {
 			projectID:         "my-project-id",
 			timesCalled:       0,
 			timesToReconcile:  1,
+			getError:          nil,
 		},
 		{
 			name:              "a node's security policy should only be set once",
@@ -99,6 +108,20 @@ func TestReconcileTable(t *testing.T) {
 			projectID:         "my-project-id",
 			timesCalled:       1,
 			timesToReconcile:  10,
+			getError:          nil,
+		},
+		{
+			name:              "node deletion should not fail reconile",
+			label:             "cloud.google.com/gke-nodepool",
+			value:             "default-pool",
+			zone:              "us-central1-a",
+			nodeName:          "my-node-name",
+			selector:          "cloud.google.com/gke-nodepool=default-pool",
+			securityPolicyURL: "securityPolicyURL",
+			projectID:         "my-project-id",
+			timesCalled:       0,
+			timesToReconcile:  1,
+			getError:          errors.NewNotFound(schema.GroupResource{}, ""),
 		},
 	}
 
@@ -112,7 +135,7 @@ func TestReconcileTable(t *testing.T) {
 			if err != nil {
 				t.Errorf("error parsing selector %v, want no error", err)
 			}
-			rc := runtimeClientImpt{labels: nodeLabels, nodeName: name}
+			rc := runtimeClientImpt{labels: nodeLabels, nodeName: name, getError: tt.getError}
 			ic := instanceClientImpl{}
 
 			r := &reconcileNode{
@@ -124,7 +147,7 @@ func TestReconcileTable(t *testing.T) {
 				processedNodes:    make(map[string]bool),
 			}
 
-			reconcileReq := reconcile.Request{}
+			reconcileReq := reconcile.Request{NamespacedName: types.NamespacedName{Name: tt.nodeName}}
 
 			for i := 0; i < tt.timesToReconcile; i++ {
 				if _, err := r.Reconcile(context.Background(), reconcileReq); err != nil {
