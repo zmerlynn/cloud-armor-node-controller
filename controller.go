@@ -22,6 +22,7 @@ import (
 	"cloud.google.com/go/compute/apiv1/computepb"
 	"github.com/googleapis/gax-go/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,6 +57,10 @@ func (r *reconcileNode) Reconcile(ctx context.Context, request reconcile.Request
 	// Fetch the Node from the cache
 	node := &corev1.Node{}
 	if err := r.client.Get(ctx, request.NamespacedName, node); err != nil {
+		if errors.IsNotFound(err) {
+			log.Info("Node not found, likely deleted", "name", request.NamespacedName.Name)
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, fmt.Errorf("could not fetch Node: %+v", err)
 	}
 
